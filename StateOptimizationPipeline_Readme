@@ -1,0 +1,475 @@
+# Space Weather Forecasting: SWAPI Thermodynamic State Optimization
+
+This repository contains the data-driven state optimization pipeline used to initialize baseline boundaries for downstream fuzzy-HMM and EML-ODE solar wind profiling.
+
+## Repository Contents
+* `IMAP_SWAPI_L1_2026-03-15_2026-04-15.csv`: Raw input plasma telemetry.
+* `state_optimization_pipeline.py`: Code execution loop evaluating K=2 to K=8.
+* `swapi_state_estimation.png`: Visualization File - Model-selection plot and
+Scatter plot of density vs. velocity colored by assigned state
+
+## Structured Observational Metadata
+```json
+{
+  "instrument": "IMAP_SWAPI",
+  "data_level": "L1",
+  "temporal_range": "2026-03-15 to 2026-04-15",
+  "attributes": {
+    "EPOCH": {"type": "Timestamp", "format": "dd-mm-yyyy hh:mm:ss.mil.mic.nan"},
+    "SW_P_PSEUDO_N": {"type": "Proton Pseudo-Density", "unit": "1/cm^3"},
+    "SW_P_PSEUDO_V": {"type": "Proton Bulk Velocity", "unit": "km/sec"}
+  },
+  "optimization_metrics": {
+    "selected_states": 4,
+    "selection_criterion": "BIC Inflection (Elbow Method)"
+  }
+}
+
+
+This script addresses a state-estimation and regime-discovery problem in space-plasma or solar-wind data analysis.
+
+
+Question adressed: How many distinct physical plasma states are present in solar-wind measurements, and where are the fuzzy boundaries between them?
+
+Automatically identifying thermodynamic plasma regimes in solar-wind observations without relying only on hard, manually defined thresholds.
+Solar-wind data often contains overlapping or transitional states, such as:
+
+Cold, slow, dense solar wind
+Hot, fast, tenuous solar wind
+Interplanetary shocks or compression fronts
+ICME/sheath-like plasma regimes
+
+Summary:
+A batch Python/scikit-learn pipeline that reads SWAPI solar-wind telemetry, cleans it, standardizes proton density and velocity, uses a Gaussian Mixture Model to infer fuzzy plasma regimes, and outputs state labels, model-selection metrics, state summaries, and a visualization.
+
+The system outputs:
+
+A cleaned analysis-ready dataset
+Model-selection scores for different numbers of states
+Assigned plasma-state labels for each timestamped measurement
+Summary statistics for each state
+A saved visualization image
+Alternative state segmentations for comparison, such as K=4 and K=5
+
+The system evaluates different numbers of possible plasma states, from K=2 through K=8.
+
+It outputs metrics such as:
+
+BIC — Bayesian Information Criterion
+AIC — Akaike Information Criterion
+KMeans inertia
+Example output:
+
+K	BIC	AIC	Inertia
+2	299561.3	299454.0	154612.3
+3	242026.2	241860.3	87576.1
+4	197903.9	197679.5	52671.5
+5	189399.1	189116.1	37816.3
+6	182889.7	182548.1	30190.3
+7	163432.9	163032.8	22818.5
+8	157918.7	157460.0	18018.1
+
+The system assigns each cleaned observation to a learned state.
+
+For example, using a K=4 Gaussian Mixture Model, it creates a new label column:
+
+State_GMM4
+Using a K=5 model, it creates:
+
+State_GMM5
+Each row receives a state ID, such as 0, 1, 2, or 3 for the K=4 model.
+
+State summary table
+The system produces summary statistics for each discovered state.
+
+For the K=4 model, the output includes:
+
+State	Count	Mean density	Density std. dev.	Mean velocity	Velocity std. dev.
+0	53,032	5.12	1.49	380.80	34.35
+2	6,478	48.41	46.90	433.98	34.54
+3	21,303	8.05	3.43	514.92	73.58
+1	47,007	2.86	0.62	547.23	67.45
+
+Visualization file
+The system saves a plot:
+
+swapi_state_estimation.png
+
+The plot contains:
+
+Elbow/model-selection chart
+BIC and KMeans inertia versus number of states K
+Scatter plot of plasma regimes
+X-axis: proton velocity, SW_P_PSEUDO_V
+Y-axis: proton density, SW_P_PSEUDO_N
+Color: assigned GMM state
+Density shown on a log scale
+
+Optional:
+The document also shows a K=5 Gaussian Mixture Model output.
+
+Its summary table includes:
+
+Count	Mean density	Mean velocity
+52,997	5.08	380.86
+7,550	30.54	426.71
+834	134.95	453.86
+20,458	7.25	521.30
+45,981	2.84	549.13
+This gives a finer-grained segmentation, especially around high-density observations.
+
+
+Loads SWAPI Level 1 data
+File used: IMAP_SWAPI_L1_2026-03-15_2026-04-15.csv
+Fields include:
+EPOCH: timestamp
+SW_P_PSEUDO_N: solar-wind proton density, measured in 1/cm^3
+SW_P_PSEUDO_V: solar-wind proton velocity, measured in km/sec
+
+Cleans and validates the data
+Removes missing rows
+Converts density and velocity into usable numeric features
+
+Original data rows: about 127,823
+Missing values:
+SW_P_PSEUDO_N: 3
+SW_P_PSEUDO_V: 3
+Cleaned dataset removes those incomplete records before modeling.
+
+Uses unsupervised machine learning
+Applies Gaussian Mixture Models and KMeans-style elbow analysis
+Tests multiple numbers of states, such as K=2 through K=8
+
+The State Estimation Model is the machine-learning model used to infer plasma regimes.
+
+GaussianMixture
+KMeans for comparison / elbow analysis
+StandardScaler for feature scaling
+The main model object is the Gaussian Mixture Model, such as:
+
+GMM4 — four-state model
+GMM5 — five-state model
+
+Segments the observations into plasma regimes
+For example, a K=4 model identifies four distinct regimes based on proton density and velocity.
+
+Model Selection Metrics help determine how many states should be used.
+
+The script calculates:
+
+Metric	Purpose
+BIC	Penalized likelihood score for selecting number of GMM components
+AIC	Alternative penalized likelihood score
+Inertia	KMeans compactness score for elbow analysis
+
+
+Produces interpretable state summaries
+A State Summary describes each estimated plasma state in aggregate.
+
+For the four-state model, the summary includes:
+
+Attribute	Meaning
+count	Number of observations in the state
+mean_density	Average proton density for the state
+std_density	Density variability
+mean_velocity	Average proton velocity for the state
+std_velocity	Velocity variability
+
+The Visualization Output is the saved chart artifact:
+
+swapi_state_estimation.png
+It contains:
+
+Model-selection plot
+Scatter plot of density vs. velocity colored by assigned state
+
+The script mainly stores information in Pandas DataFrames, NumPy arrays, Python lists, and scikit-learn model objects.
+
+The first major storage structure is the raw loaded dataset:
+
+python
+df = pd.read_csv('IMAP_SWAPI_L1_2026-03-15_2026-04-15.csv')
+
+Later, the file is loaded with cleaned column names:
+
+python
+df = pd.read_csv(
+    'IMAP_SWAPI_L1_2026-03-15_2026-04-15.csv',
+    skiprows=3,
+    names=['EPOCH', 'SW_P_PSEUDO_N', 'SW_P_PSEUDO_V']
+)
+
+The pipeline removes incomplete rows and stores the result in:
+
+python
+df_clean = df.dropna().copy()
+
+Later, it is extended with state-label columns:
+
+python
+df_clean['State_GMM4'] = labels4
+df_clean['State_GMM5'] = labels5
+Example logical structure:
+EPOCH	SW_P_PSEUDO_N	SW_P_PSEUDO_V	State_GMM4	State_GMM5
+timestamp	density	velocity	state ID	state ID
+
+The model inputs are extracted into a NumPy array:
+
+python
+X = df_clean[['SW_P_PSEUDO_N', 'SW_P_PSEUDO_V']].values
+This stores only the numeric modeling features:
+Column index	Feature
+0	SW_P_PSEUDO_N
+1	SW_P_PSEUDO_V
+
+The model does not train directly on X. It first scales the features:
+
+python
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+X_scaled is another NumPy array.
+It stores standardized versions of density and velocity, usually with:
+mean near 0
+standard deviation near 1
+
+The fitted scaler is stored in:
+
+python
+scaler = StandardScaler()
+After fitting, it contains parameters such as:
+feature means
+feature standard deviations / variances
+
+Gaussian Mixture Model objects: gmm, gmm4, gmm5
+The learned state-estimation models are stored as scikit-learn objects:
+python
+gmm = GaussianMixture(n_components=4, random_state=42, n_init=1, max_iter=50)
+gmm4 = GaussianMixture(n_components=4, random_state=42, n_init=1)
+gmm5 = GaussianMixture(n_components=5, random_state=42, n_init=1)
+These objects store the learned statistical representation of plasma regimes, including:
+component means
+covariance matrices
+mixture weights
+convergence information
+
+
+During model selection, the system also creates KMeans objects:
+
+python
+km = KMeans(n_clusters=k, random_state=42, n_init=10, max_iter=100)
+The KMeans object stores:
+cluster centers
+inertia score
+assigned labels, if needed
+In this script, it is mainly used to calculate inertia for elbow analysis.
+
+Metric lists: bics, aics, inertias
+The model-selection scores are stored in Python lists:
+
+python
+bics = []
+aics = []
+inertias = []
+Each list stores one score per tested number of states.
+
+List	Stores
+bics	BIC scores for GMM models
+aics	AIC scores for GMM models
+inertias	KMeans inertia values
+They correspond to:
+python
+n_components_range = range(2, 9)
+So each index maps to a K value from 2 through 8
+
+State label arrays: labels4, labels5
+The assigned state IDs are stored in NumPy arrays:
+
+python
+labels4 = gmm4.fit_predict(X_scaled)
+labels5 = gmm5.fit_predict(X_scaled)
+These arrays contain one state label per observation.
+
+They are later added back into df_clean as columns:
+python
+df_clean['State_GMM4'] = labels4
+df_clean['State_GMM5'] = labels5
+
+Summary DataFrames: summary, summary5
+The system stores aggregate state descriptions in Pandas DataFrames.
+
+For the four-state model:
+
+python
+summary = df_clean.groupby('State_GMM4').agg(
+    count=('SW_P_PSEUDO_N', 'count'),
+    mean_density=('SW_P_PSEUDO_N', 'mean'),
+    std_density=('SW_P_PSEUDO_N', 'std'),
+    mean_velocity=('SW_P_PSEUDO_V', 'mean'),
+    std_velocity=('SW_P_PSEUDO_V', 'std')
+).reset_index()
+For the five-state model:
+
+python
+summary5 = df_clean.groupby('State_GMM5').agg(
+    count=('SW_P_PSEUDO_N', 'count'),
+    mean_density=('SW_P_PSEUDO_N', 'mean'),
+    mean_velocity=('SW_P_PSEUDO_V', 'mean')
+)
+
+Plot objects: fig, axes, ax2, sc
+The visualization is created using Matplotlib objects:
+
+python
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+ax2 = axes[0].twinx()
+sc = axes[1].scatter(...)
+These store the chart layout and plotted data before saving.
+
+The final output is saved as:
+
+python
+plt.savefig('swapi_state_estimation.png', dpi=150)
+
+Summary table
+Data structure	Type	Stores
+df	Pandas DataFrame	Raw / initially loaded CSV data
+df_clean	Pandas DataFrame	Cleaned observations plus assigned state labels
+X	NumPy array	Raw numeric feature matrix
+X_scaled	NumPy array	Standardized feature matrix
+scaler	StandardScaler object	Feature scaling parameters
+gmm, gmm4, gmm5	GaussianMixture objects	Learned plasma-regime models
+km	KMeans object	KMeans clustering model for inertia comparison
+bics	Python list	BIC scores by number of states
+aics	Python list	AIC scores by number of states
+inertias	Python list	KMeans inertia scores by number of clusters
+labels4	NumPy array	Four-state assignment per observation
+labels5	NumPy array	Five-state assignment per observation
+summary	Pandas DataFrame	Aggregated statistics for State_GMM4
+summary5	Pandas DataFrame	Aggregated statistics for State_GMM5
+fig, axes, ax2, sc	Matplotlib objects	Visualization objects before file export
+swapi_state_estimation.png	PNG file	Saved visualization artifact
+
+The central processing engine is sklearn.mixture.GaussianMixture, applied to standardized SWAPI proton density and velocity measurements.
+python
+from sklearn.mixture import GaussianMixture
+
+gmm = GaussianMixture(
+    n_components=4,
+    random_state=42,
+    n_init=1,
+    max_iter=50
+)
+
+gmm.fit(X_scaled)
+
+And later:
+
+python
+gmm4 = GaussianMixture(n_components=4, random_state=42, n_init=1)
+labels4 = gmm4.fit_predict(X_scaled)
+
+The Gaussian Mixture Model processes the scaled feature matrix:
+
+python
+X_scaled
+which contains standardized versions of:
+
+SW_P_PSEUDO_N — proton density
+SW_P_PSEUDO_V — proton velocity
+It estimates clusters or regimes in this two-dimensional feature space.
+
+Each learned component represents a candidate solar-wind state or plasma regime.
+
+Main processing flow
+The engine works like this:
+
+Read raw SWAPI CSV
+    Using Pandas
+Clean rows
+    Drop missing density or velocity values
+Extract feature matrix
+    Density and velocity into NumPy array X
+Standardize features
+    Using StandardScaler
+Fit Gaussian Mixture Model
+    Learn fuzzy plasma-regime boundaries
+Assign state labels
+    Using fit_predict()
+Evaluate number of states
+    Using BIC, AIC, and KMeans inertia
+Summarize states
+    Using Pandas groupby
+Visualize results
+    Using Matplotlib
+
+Input, processing, output summary
+Stage	Input	Process	Output
+Ingestion	SWAPI CSV	pd.read_csv	Raw dataframe
+Parsing	Raw dataframe	skip metadata rows, name columns	Structured dataframe
+Cleaning	Structured dataframe	dropna()	Clean dataframe
+Feature prep	Clean dataframe	select density/velocity	NumPy feature matrix
+Scaling	Feature matrix	StandardScaler	Scaled feature matrix
+Model selection	Scaled matrix	GMM + KMeans loop	BIC, AIC, inertia
+State estimation	Scaled matrix	GMM fit/predict	State labels
+Enrichment	Clean dataframe + labels	add State_GMM4	Labeled dataframe
+Summarization	Labeled dataframe	groupby().agg()	State summary table
+Visualization	Metrics + labeled data	Matplotlib	PNG chart
+Alternative model	Scaled matrix	GMM with K=5	Additional labels and summary
+
+Key controls:
+Parameter	Behavior controlled
+n_clusters=k	Number of comparison clusters
+random_state=42	Reproducibility
+n_init=10	More robust KMeans initialization
+max_iter=100	Training iteration cap
+
+The highest-impact controls are:
+
+Control	Why it matters
+Input file name	Determines data interval analyzed
+skiprows=3	Ensures the CSV is parsed correctly
+Feature list	Determines what physical measurements drive classification
+dropna() rule	Determines which records are eligible
+StandardScaler	Balances density and velocity influence
+n_components	Determines number of inferred states
+n_components_range	Determines candidate model complexity
+random_state	Makes results reproducible
+max_iter	Controls model convergence/runtime
+Output file name	Determines generated visualization artifact
+
+The system is controlled by hard-coded Python parameters, especially:
+
+python
+skiprows=3
+names=['EPOCH', 'SW_P_PSEUDO_N', 'SW_P_PSEUDO_V']
+X = df_clean[['SW_P_PSEUDO_N', 'SW_P_PSEUDO_V']].values
+n_components=4
+n_components_range = range(2, 9)
+random_state=42
+max_iter=50 or 100
+plt.savefig('swapi_state_estimation.png', dpi=150)
+
+Critical failure points
+utliers and extreme values
+The density distribution includes a high maximum:
+
+Metric	Density
+Mean	6.97
+Std. dev.	14.47
+Max	566.04
+This indicates strong outliers or rare high-density events.
+
+Outliers can dominate clustering and create states that represent artifacts rather than meaningful regimes.
+
+Failure modes:
+One small state becomes an “outlier bucket”
+Normal regimes are distorted
+GMM covariance estimates become unstable
+High-density events are over- or under-emphasized
+
+Mitigation:
+Use physical plausibility checks
+Flag extreme density and velocity values
+Compare models with and without outliers
+Consider log-transforming density before scaling
+Review high-density state manually
